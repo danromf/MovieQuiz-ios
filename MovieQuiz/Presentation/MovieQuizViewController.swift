@@ -1,7 +1,7 @@
 import UIKit
 
-final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
-    
+final class MovieQuizViewController: UIViewController {
+
     @IBOutlet private var imageView: UIImageView!
     @IBOutlet private var textLabel: UILabel!
     @IBOutlet private var counterLabel: UILabel!
@@ -25,6 +25,7 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
         let questionFactory = QuestionFactory()
         questionFactory.delegate = self
         self.questionFactory = questionFactory
+        questionFactory.moviesLoader = MoviesLoader()
         
         let alertPresenter = AlertPresenter()
         alertPresenter.viewController = self
@@ -32,27 +33,13 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
         
         statisticService = StatisticServiceImplementation()
         
-        self.questionFactory?.requestNextQuestion()
-    }
-    
-    // MARK: - QuestionFactoryDelegate
-
-    func didReceiveNextQuestion(question: QuizQuestion?) {
-            guard let question = question else {
-                return
-            }
-
-            currentQuestion = question
-            let viewModel = convert(model: question)
-        
-            DispatchQueue.main.async { [weak self] in
-                self?.show(quiz: viewModel)
-            }
+        questionFactory.loadData()
+        showLoadingIndicator()
     }
     
     private func convert(model: QuizQuestion) -> QuizStepViewModel {
         return QuizStepViewModel(
-            image: UIImage(named: model.image) ?? UIImage(),
+            image: UIImage(data: model.image) ?? UIImage(),
             question: model.text,
             questionNumber: "\(currentQuestionIndex + 1)/\(questionsAmount)")
     }
@@ -161,6 +148,32 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate {
         }
         
         showAnswerResult(isCorrect: currentQuestion.correctAnswer == true)
+    }
+}
+
+extension MovieQuizViewController: QuestionFactoryDelegate {
+    // MARK: - QuestionFactoryDelegate
+
+    func didReceiveNextQuestion(question: QuizQuestion?) {
+            guard let question = question else {
+                return
+            }
+
+            currentQuestion = question
+            let viewModel = convert(model: question)
+        
+            DispatchQueue.main.async { [weak self] in
+                self?.show(quiz: viewModel)
+            }
+    }
+    
+    func didLoadDataFromServer() {
+        hideLoadingIndicator()
+        questionFactory?.requestNextQuestion()
+    }
+    
+    func didFailToLoadData(with error: Error) {
+        showNetworkError(message: error.localizedDescription)
     }
 }
 
