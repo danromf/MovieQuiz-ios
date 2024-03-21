@@ -11,7 +11,6 @@ final class MovieQuizViewController: UIViewController {
     
     private var correctAnswers = 0
     private var questionFactory: QuestionFactoryProtocol?
-    private var currentQuestion: QuizQuestion?
     private var alertPresenter: AlertPresenterProtocol?
     private var statisticService: StatisticService?
     private let presenter = MovieQuizPresenter()
@@ -38,7 +37,8 @@ final class MovieQuizViewController: UIViewController {
         showLoadingIndicator()
     }
     
-    private func show(quiz step: QuizStepViewModel) {
+    func show(quiz step: QuizStepViewModel) {
+        imageView.layer.borderWidth = 0
         imageView.image = step.image
         textLabel.text = step.question
         counterLabel.text = step.questionNumber
@@ -47,7 +47,7 @@ final class MovieQuizViewController: UIViewController {
         yesButton.isEnabled = true
     }
     
-    private func show(quiz result: QuizResultsViewModel) {
+    func show(quiz result: QuizResultsViewModel) {
         guard let statisticService = statisticService else {
             return
         }
@@ -87,19 +87,9 @@ final class MovieQuizViewController: UIViewController {
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
             guard let self = self else { return }
-            self.showNextQuestionOrResults()
-        }
-    }
-    
-    private func showNextQuestionOrResults() {
-        imageView.layer.borderWidth = 0
-        
-        if presenter.isLastQustion() {
-            show(quiz: QuizResultsViewModel(title: "Этот раунд окончен!", text: "Ваш результат: \(correctAnswers)/10", buttonText: "Сыграть ещё раз"))
-        } else {
-            presenter.switchToNextQuestion()
-            
-            questionFactory?.requestNextQuestion()
+            self.presenter.correctAnswers = self.correctAnswers
+            self.presenter.questionFactory = self.questionFactory
+            self.presenter.showNextQuestionOrResults()
         }
     }
     
@@ -129,12 +119,10 @@ final class MovieQuizViewController: UIViewController {
     }
     
     @IBAction private func noButtonClicked(_ sender: UIButton) {
-        presenter.currentQuestion = currentQuestion
         presenter.noButtonClicked()
     }
     
     @IBAction private func yesButtonClicked(_ sender: UIButton) {
-        presenter.currentQuestion = currentQuestion
         presenter.yesButtonClicked()
     }
 }
@@ -143,16 +131,7 @@ extension MovieQuizViewController: QuestionFactoryDelegate {
     // MARK: - QuestionFactoryDelegate
 
     func didReceiveNextQuestion(question: QuizQuestion?) {
-            guard let question = question else {
-                return
-            }
-
-            currentQuestion = question
-            let viewModel = presenter.convert(model: question)
-        
-            DispatchQueue.main.async { [weak self] in
-                self?.show(quiz: viewModel)
-            }
+        presenter.didReceiveNextQuestion(question: question)
     }
     
     func didLoadDataFromServer() {
